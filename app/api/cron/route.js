@@ -3,9 +3,6 @@ import { runScan } from "@/lib/scanner";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
-// Allow up to 5 minutes — the scan fetches many tickers with rate-limit delays
-export const maxDuration = 300;
-
 const DATA_DIR = "/tmp/.scan-data";
 
 // GET — called by Vercel cron (crons always use GET)
