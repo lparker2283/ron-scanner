@@ -3,7 +3,8 @@ import { runScan } from "@/lib/scanner";
 import { writeFile, readFile, mkdir } from "fs/promises";
 import path from "path";
 
-const DATA_DIR = path.join(process.cwd(), ".scan-data");
+// Vercel serverless: only /tmp is writable at runtime
+const DATA_DIR = "/tmp/.scan-data";
 
 async function ensureDataDir() {
   try {
