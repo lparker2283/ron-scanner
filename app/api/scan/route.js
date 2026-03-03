@@ -1,46 +1,21 @@
 import { NextResponse } from "next/server";
 import { runScan } from "@/lib/scanner";
-import { writeFile, readFile, mkdir } from "fs/promises";
-import path from "path";
+import { kv } from "@vercel/kv";
 
-// Vercel serverless: only /tmp is writable at runtime
-const DATA_DIR = "/tmp/.scan-data";
-
-async function ensureDataDir() {
-  try {
-    await mkdir(DATA_DIR, { recursive: true });
-  } catch {
-    // already exists
-  }
-}
-
-async function saveResult(date, data) {
-  await ensureDataDir();
-  const filePath = path.join(DATA_DIR, `${date}.json`);
-  await writeFile(filePath, JSON.stringify(data, null, 2));
-}
-
-async function loadLatestResult() {
-  try {
-    await ensureDataDir();
-    const { readdir } = await import("fs/promises");
-    const files = await readdir(DATA_DIR);
-    const jsonFiles = files.filter((f) => f.endsWith(".json")).sort().reverse();
-    if (jsonFiles.length === 0) return null;
-    const content = await readFile(path.join(DATA_DIR, jsonFiles[0]), "utf-8");
-    return JSON.parse(content);
-  } catch {
-    return null;
-  }
-}
+const KV_KEY = "latest-scan";
 
 // GET — return latest scan results
 export async function GET() {
-  const data = await loadLatestResult();
-  if (!data) {
-    return NextResponse.json({ error: "No scan data yet" }, { status: 404 });
+  try {
+    const data = await kv.get(KV_KEY);
+    if (!data) {
+      return NextResponse.json({ error: "No scan data yet" }, { status: 404 });
+    }
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error("[API] Failed to read scan data:", err);
+    return NextResponse.json({ error: "Failed to read scan data" }, { status: 500 });
   }
-  return NextResponse.json(data);
 }
 
 // POST — trigger a new scan (called by Vercel cron or manually)
@@ -57,7 +32,7 @@ export async function POST(request) {
   try {
     console.log("[API] Starting scan...");
     const result = await runScan();
-    await saveResult(result.date, result);
+    await kv.set(KV_KEY, result);
     console.log(`[API] Scan complete. ${result.picks.length} picks saved.`);
     return NextResponse.json({
       ok: true,

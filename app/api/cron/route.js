@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { runScan } from "@/lib/scanner";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { kv } from "@vercel/kv";
 
-const DATA_DIR = "/tmp/.scan-data";
+const KV_KEY = "latest-scan";
 
 // GET — called by Vercel cron (crons always use GET)
 export async function GET(request) {
@@ -15,10 +14,8 @@ export async function GET(request) {
 
   try {
     console.log("[Cron] Starting daily scan...");
-    await mkdir(DATA_DIR, { recursive: true });
     const result = await runScan();
-    const filePath = path.join(DATA_DIR, `${result.date}.json`);
-    await writeFile(filePath, JSON.stringify(result, null, 2));
+    await kv.set(KV_KEY, result);
     console.log(`[Cron] Scan complete. ${result.picks.length} picks saved.`);
     return NextResponse.json({ ok: true, date: result.date, picks: result.picks.length });
   } catch (err) {
