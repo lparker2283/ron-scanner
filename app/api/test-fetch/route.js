@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import yahooFinance from "yahoo-finance2";
+import _yfModule from "yahoo-finance2";
+const yahooFinance = _yfModule?.default ?? _yfModule;
 
 // Quick diagnostic: fetch one ticker and return raw result or full error
 export async function GET() {
