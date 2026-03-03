@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { runScan } from "@/lib/scanner";
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 
+const redis = Redis.fromEnv();
 const KV_KEY = "latest-scan";
 
 // GET — called by Vercel cron (crons always use GET)
@@ -15,7 +16,7 @@ export async function GET(request) {
   try {
     console.log("[Cron] Starting daily scan...");
     const result = await runScan();
-    await kv.set(KV_KEY, result);
+    await redis.set(KV_KEY, result);
     console.log(`[Cron] Scan complete. ${result.picks.length} picks saved.`);
     return NextResponse.json({ ok: true, date: result.date, picks: result.picks.length });
   } catch (err) {

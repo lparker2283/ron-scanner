@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { runScan } from "@/lib/scanner";
-import { kv } from "@vercel/kv";
+import { Redis } from "@upstash/redis";
 
+const redis = Redis.fromEnv();
 const KV_KEY = "latest-scan";
 
 // GET — return latest scan results
 export async function GET() {
   try {
-    const data = await kv.get(KV_KEY);
+    const data = await redis.get(KV_KEY);
     if (!data) {
       return NextResponse.json({ error: "No scan data yet" }, { status: 404 });
     }
@@ -32,7 +33,7 @@ export async function POST(request) {
   try {
     console.log("[API] Starting scan...");
     const result = await runScan();
-    await kv.set(KV_KEY, result);
+    await redis.set(KV_KEY, result);
     console.log(`[API] Scan complete. ${result.picks.length} picks saved.`);
     return NextResponse.json({
       ok: true,
