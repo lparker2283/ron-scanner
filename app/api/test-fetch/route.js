@@ -3,7 +3,7 @@ import { fetchHistoricalData, fetchQuote } from "@/lib/data";
 
 export async function GET() {
   const ticker = "XLK";
-  const results = {};
+  const results = { ticker, fmpKeySet: !!process.env.FMP_API_KEY };
 
   try {
     const data = await fetchHistoricalData(ticker, 2);
