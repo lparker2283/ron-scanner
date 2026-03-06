@@ -6,7 +6,7 @@
     }
   ],
   "functions": {
-    "app/api/scan/route.js": { "maxDuration": 60 },
-    "app/api/cron/route.js": { "maxDuration": 60 }
+    "app/api/scan/route.js": { "maxDuration": 120 },
+    "app/api/cron/route.js": { "maxDuration": 120 }
   }
 }
