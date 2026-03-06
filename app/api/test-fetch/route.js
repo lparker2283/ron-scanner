@@ -1,26 +1,39 @@
 import { NextResponse } from "next/server";
-import { fetchHistoricalData, fetchQuote } from "@/lib/data";
+
+const FMP_BASE = "https://financialmodelingprep.com/api/v3";
+
+async function fmpFetch(path) {
+  const res = await fetch(`${FMP_BASE}${path}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
 
 export async function GET() {
-  const ticker = "XLK";
-  const results = { ticker, fmpKeySet: !!process.env.FMP_API_KEY };
+  const key = process.env.FMP_API_KEY;
+  const results = { fmpKeySet: !!key };
 
+  // Test 1: single ticker
   try {
-    const data = await fetchHistoricalData(ticker, 2);
-    results.historical = {
-      ok: !!data,
-      count: data?.length ?? 0,
-      sample: data?.slice(-3),
+    const json = await fmpFetch(`/historical-price-full/XLK?timeseries=5&apikey=${key}`);
+    results.singleTicker = {
+      ok: !!json?.historical?.length,
+      count: json?.historical?.length ?? 0,
+      keys: Object.keys(json ?? {}),
     };
   } catch (err) {
-    results.historical = { ok: false, error: err.message };
+    results.singleTicker = { ok: false, error: err.message };
   }
 
+  // Test 2: batch tickers
   try {
-    const q = await fetchQuote(ticker);
-    results.quote = { ok: !!q, data: q };
+    const json = await fmpFetch(`/historical-price-full/XLK,XLV?timeseries=5&apikey=${key}`);
+    results.batchTickers = {
+      ok: !!(json?.historicalStockList?.length || json?.historical?.length),
+      keys: Object.keys(json ?? {}),
+      listLength: json?.historicalStockList?.length ?? "n/a",
+    };
   } catch (err) {
-    results.quote = { ok: false, error: err.message };
+    results.batchTickers = { ok: false, error: err.message };
   }
 
   return NextResponse.json(results);
