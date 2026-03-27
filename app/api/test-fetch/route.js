@@ -1,39 +1,48 @@
 import { NextResponse } from "next/server";
 
-const FMP_BASE = "https://financialmodelingprep.com/api/v3";
+const MASSIVE_BASE = "https://api.massive.com";
 
-async function fmpFetch(path) {
-  const res = await fetch(`${FMP_BASE}${path}`);
+async function massiveFetch(path, key) {
+  const separator = path.includes("?") ? "&" : "?";
+  const res = await fetch(`${MASSIVE_BASE}${path}${separator}apiKey=${key}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
 
 export async function GET() {
-  const key = process.env.FMP_API_KEY;
-  const results = { fmpKeySet: !!key };
+  const key = process.env.MASSIVE_API_KEY;
+  const results = { massiveKeySet: !!key };
 
-  // Test 1: single ticker
+  // Test 1: single ticker historical bars
   try {
-    const json = await fmpFetch(`/historical-price-full/XLK?timeseries=5&apikey=${key}`);
+    const to = new Date().toISOString().slice(0, 10);
+    const from = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const json = await massiveFetch(
+      `/v2/aggs/ticker/XLK/range/1/day/${from}/${to}?adjusted=true&sort=asc`,
+      key
+    );
     results.singleTicker = {
-      ok: !!json?.historical?.length,
-      count: json?.historical?.length ?? 0,
-      keys: Object.keys(json ?? {}),
+      ok: json.resultsCount > 0,
+      count: json.resultsCount ?? 0,
+      status: json.status,
     };
   } catch (err) {
     results.singleTicker = { ok: false, error: err.message };
   }
 
-  // Test 2: batch tickers
+  // Test 2: snapshot quote
   try {
-    const json = await fmpFetch(`/historical-price-full/XLK,XLV?timeseries=5&apikey=${key}`);
-    results.batchTickers = {
-      ok: !!(json?.historicalStockList?.length || json?.historical?.length),
-      keys: Object.keys(json ?? {}),
-      listLength: json?.historicalStockList?.length ?? "n/a",
+    const json = await massiveFetch(
+      `/v2/snapshot/locale/us/markets/stocks/tickers/XLK`,
+      key
+    );
+    results.snapshot = {
+      ok: !!json?.ticker,
+      price: json?.ticker?.day?.c ?? null,
+      status: json.status,
     };
   } catch (err) {
-    results.batchTickers = { ok: false, error: err.message };
+    results.snapshot = { ok: false, error: err.message };
   }
 
   return NextResponse.json(results);
