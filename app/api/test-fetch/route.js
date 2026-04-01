@@ -15,38 +15,50 @@ export async function GET() {
 
   const to = new Date().toISOString().slice(0, 10);
   const from = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+  const from60 = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
 
-  // Test 1: single ticker historical bars
+  // Test 1: XLK (working sector) — 7 days
   try {
     const json = await massiveFetch(
       `/v2/aggs/ticker/XLK/range/1/day/${from}/${to}?adjusted=true&sort=asc`,
       key
     );
-    results.singleTicker = {
-      ok: json.resultsCount > 0,
-      count: json.resultsCount ?? 0,
-      status: json.status,
-    };
+    results.XLK_7d = { count: json.resultsCount ?? 0, status: json.status };
   } catch (err) {
-    results.singleTicker = { ok: false, error: err.message };
+    results.XLK_7d = { error: err.message };
   }
 
-  // Test 2: quote via recent aggs (avoids snapshot tier requirement)
+  // Test 2: XLI (zero-flow sector) — 7 days
   try {
     const json = await massiveFetch(
-      `/v2/aggs/ticker/XLK/range/1/day/${from}/${to}?adjusted=true&sort=asc&limit=2`,
+      `/v2/aggs/ticker/XLI/range/1/day/${from}/${to}?adjusted=true&sort=asc`,
       key
     );
-    const bars = json.results ?? [];
-    const latest = bars[bars.length - 1];
-    results.quote = {
-      ok: !!latest,
-      price: latest?.c ?? null,
-      bars: bars.length,
-      status: json.status,
-    };
+    results.XLI_7d = { count: json.resultsCount ?? 0, status: json.status };
   } catch (err) {
-    results.quote = { ok: false, error: err.message };
+    results.XLI_7d = { error: err.message };
+  }
+
+  // Test 3: XLI — 60 days (what the scanner actually requests for sector ETFs)
+  try {
+    const json = await massiveFetch(
+      `/v2/aggs/ticker/XLI/range/1/day/${from60}/${to}?adjusted=true&sort=asc&limit=50000`,
+      key
+    );
+    results.XLI_60d = { count: json.resultsCount ?? 0, status: json.status };
+  } catch (err) {
+    results.XLI_60d = { error: err.message };
+  }
+
+  // Test 4: XLK — 60 days
+  try {
+    const json = await massiveFetch(
+      `/v2/aggs/ticker/XLK/range/1/day/${from60}/${to}?adjusted=true&sort=asc&limit=50000`,
+      key
+    );
+    results.XLK_60d = { count: json.resultsCount ?? 0, status: json.status };
+  } catch (err) {
+    results.XLK_60d = { error: err.message };
   }
 
   return NextResponse.json(results);
