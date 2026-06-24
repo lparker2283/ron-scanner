@@ -27,6 +27,9 @@ avgVolFirst    = ta.sma(etfVol, 15)[15]
 secPriceChg = (avgPriceSecond - avgPriceFirst) / avgPriceFirst
 secVolChg   = (avgVolSecond - avgVolFirst) / avgVolFirst
 c1_sectorFlow = secPriceChg > 0 and secVolChg > -0.1
+// $B flow proxy (matches JS: priceChange * avgDailyDollarVol * 30 / 1e9)
+avgDailyDollarVol = ta.sma(etfClose * etfVol, 15)
+secFlowB = math.round(secPriceChg * avgDailyDollarVol * 30 / 1e9 * 10) / 10
 
 // ── Criterion 2: Consolidation breakout ────────────────────────────────────
 // JS: consolidation window = bars[-130:-30] (100 bars), recent = last 30.
@@ -46,6 +49,8 @@ sma50    = ta.sma(close, 50)
 slope    = sma50 - sma50[10]
 slopePct = slope / sma50[10] * 100
 c3_smaSlope = slope >= 0
+// inflection: was declining 10 bars earlier, now flat/rising (matches JS)
+inflection = (sma50[10] - sma50[20]) < 0 and slope >= 0
 
 // ── Criterion 4: Cutler's RSI (SMA-based, period 14) ───────────────────────
 // JS: avgGain/avgLoss are simple averages; met = 40 <= rsi <= 60
@@ -76,6 +81,7 @@ if array.size(pivPrice) >= 2
         if array.get(pivPrice, i) > array.get(pivPrice, i - 1)
             higherHighCount += 1
 c5_higherHighs = higherHighCount >= 1
+doubleConfirmed = higherHighCount >= 2
 
 // ── Score & tier ───────────────────────────────────────────────────────────
 metCount = (c1_sectorFlow ? 1 : 0) + (c2_consol ? 1 : 0) + (c3_smaSlope ? 1 : 0) + (c4_rsi ? 1 : 0) + (c5_higherHighs ? 1 : 0)
@@ -85,8 +91,20 @@ tier = metCount == 5 ? 1 : metCount >= 3 ? 2 : 0
 plotshape(tier == 1, "Tier 1", shape.triangleup,   location.belowbar, color.new(color.green, 0),  size = size.small)
 plotshape(tier == 2, "Tier 2", shape.triangleup,   location.belowbar, color.new(color.teal, 30),  size = size.tiny)
 
-// ── Build the JSON webhook payload ─────────────────────────────────────────
+// ── Detail strings (mirror lib/criteria.js, shown in the dashboard) ────────
 f_b(b) => b ? "true" : "false"
+volPctR   = math.round(volChange * 100)
+rangePctR = math.round(rangePercent * 100)
+slopePctR = math.round(slopePct * 100) / 100
+rsiR      = math.round(cutlerRSI * 10) / 10
+
+detSector = c1_sectorFlow ? "Sector inflows: $" + str.tostring(secFlowB) + "B over 30 days" : "Sector showing outflows or flat activity"
+detConsol = c2_consol ? "Volume up " + str.tostring(volPctR) + "% from consolidation, range " + str.tostring(rangePctR) + "%" : "Volume change: " + str.tostring(volPctR) + "%, range: " + str.tostring(rangePctR) + "%"
+detSma = c3_smaSlope ? "50-SMA slope: +" + str.tostring(slopePctR) + "%" + (inflection ? " (inflection point!)" : "") : "50-SMA still declining: " + str.tostring(slopePctR) + "%"
+detRsi = cutlerRSI < 30 ? "RSI " + str.tostring(rsiR) + " — oversold, likely still falling" : cutlerRSI > 70 ? "RSI " + str.tostring(rsiR) + " — overbought, late entry" : c4_rsi ? "RSI " + str.tostring(rsiR) + " — emerging momentum zone" : cutlerRSI < 40 ? "RSI " + str.tostring(rsiR) + " — below buy zone" : "RSI " + str.tostring(rsiR) + " — above ideal zone but not overbought"
+detHH = c5_higherHighs ? str.tostring(higherHighCount) + " higher high(s) confirmed" + (doubleConfirmed ? " (double confirmed)" : "") : "No higher highs pattern detected"
+
+// ── Build the JSON webhook payload ─────────────────────────────────────────
 stop = math.round(close * 0.94 * 100) / 100
 json = '{' +
    '"secret":"'   + secret + '",' +
@@ -97,6 +115,7 @@ json = '{' +
    '"stopLoss":'  + str.tostring(stop) + ',' +
    '"tier":'      + str.tostring(tier) + ',' +
    '"metCount":'  + str.tostring(metCount) + ',' +
+   '"doubleConfirmed":' + f_b(doubleConfirmed) + ',' +
    '"criteria":{' +
        '"sectorFlow":'    + f_b(c1_sectorFlow) + ',' +
        '"consolidation":' + f_b(c2_consol) + ',' +
@@ -104,11 +123,17 @@ json = '{' +
        '"cutlerRSI":'     + f_b(c4_rsi) + ',' +
        '"higherHighs":'   + f_b(c5_higherHighs) + '},' +
    '"values":{' +
-       '"volChangePct":'    + str.tostring(math.round(volChange * 100)) + ',' +
-       '"rangePct":'        + str.tostring(math.round(rangePercent * 100)) + ',' +
-       '"smaSlopePct":'     + str.tostring(math.round(slopePct * 100) / 100) + ',' +
-       '"rsi":'             + str.tostring(math.round(cutlerRSI * 10) / 10) + ',' +
+       '"volChangePct":'    + str.tostring(volPctR) + ',' +
+       '"rangePct":'        + str.tostring(rangePctR) + ',' +
+       '"smaSlopePct":'     + str.tostring(slopePctR) + ',' +
+       '"rsi":'             + str.tostring(rsiR) + ',' +
        '"higherHighCount":' + str.tostring(higherHighCount) + '},' +
+   '"details":{' +
+       '"sectorFlow":"'    + detSector + '",' +
+       '"consolidation":"' + detConsol + '",' +
+       '"smaSlope":"'      + detSma + '",' +
+       '"cutlerRSI":"'     + detRsi + '",' +
+       '"higherHighs":"'   + detHH + '"},' +
    '"time":"' + str.format_time(time, "yyyy-MM-dd", "America/New_York") + '"' +
    '}'
 

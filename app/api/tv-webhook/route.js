@@ -26,6 +26,7 @@ export async function POST(request) {
   // Normalize one alert into a pick (matches runScan's pick shape closely).
   const c = body.criteria || {};
   const v = body.values || {};
+  const d = body.details || {};
   const pick = {
     ticker: body.ticker,
     name: body.ticker,
@@ -37,11 +38,11 @@ export async function POST(request) {
     metCount: body.metCount ?? 0,
     volumeChange: v.volChangePct ?? 0,
     criteria: [
-      { name: "Sector Flow", met: !!c.sectorFlow },
-      { name: "Consolidation", met: !!c.consolidation, value: v.volChangePct },
-      { name: "SMA Slope", met: !!c.smaSlope, value: v.smaSlopePct },
-      { name: "Cutler RSI", met: !!c.cutlerRSI, value: v.rsi },
-      { name: "Higher Highs", met: !!c.higherHighs, value: v.higherHighCount },
+      { name: "Sector Flow", met: !!c.sectorFlow, value: body.sectorFlowB, detail: d.sectorFlow },
+      { name: "Consolidation", met: !!c.consolidation, value: v.volChangePct, detail: d.consolidation },
+      { name: "SMA Slope", met: !!c.smaSlope, value: v.smaSlopePct, detail: d.smaSlope },
+      { name: "Cutler RSI", met: !!c.cutlerRSI, value: v.rsi, detail: d.cutlerRSI },
+      { name: "Higher Highs", met: !!c.higherHighs, value: v.higherHighCount, detail: d.higherHighs, doubleConfirmed: !!body.doubleConfirmed },
     ],
   };
 

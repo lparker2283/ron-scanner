@@ -57,7 +57,13 @@ picks.forEach((p, i) => {
 
 lines.push("*Data source: TradingView (Pine alert webhook). Scan via RON Scanner — lparker2283/ron-scanner.*", "");
 
+// Leave a slot for the Cowork analyst to fill in (see tradingview/README.md).
+lines.splice(lines.indexOf("## Ranked Picks"), 0, "## Market Read", "", "<!-- ANALYST: replace this line with your market summary -->", "", "---", "");
+
 mkdirSync(REPORTS_DIR, { recursive: true });
 const out = resolve(REPORTS_DIR, `${date}.md`);
 writeFileSync(out, lines.join("\n"));
 console.log(`Wrote ${out} — ${picks.length} picks (${t1} Tier 1, ${t2} Tier 2).`);
+
+// Emit structured picks so the Cowork analyst task can reason over them.
+console.log("PICKS_JSON=" + JSON.stringify({ date, t1, t2, sectors, picks }));

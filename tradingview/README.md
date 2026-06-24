@@ -46,23 +46,41 @@ Schedule for after the alerts have landed. Old Vercel cron was `0 11 * * 1-5`
 (22:00 UTC / ~5pm ET). Paste this as the task instruction:
 
 ```
-Archive today's RON Scanner picks.
+Archive and analyze today's RON Scanner picks.
 
 1. From the repo root run: node scripts/build-report.mjs
 2. If it exits with NO_DATA (code 2), no TradingView alerts fired today —
    do NOT commit anything. Report "no picks today" in your summary and stop.
-3. On success it writes reports/<date>.md. Commit it with message
-   "Add daily scan report <date>" and push to the
-   claude/scheduled-task-strategy-uynd2r branch.
-4. Summarize: Tier 1 / Tier 2 counts and the top 3 tickers.
+3. On success it writes reports/<date>.md and prints a PICKS_JSON=... line
+   with the structured picks. Read that JSON, then edit reports/<date>.md:
+   - Replace the "<!-- ANALYST: ... -->" line under "## Market Read" with a
+     2-4 sentence read on the day: which sectors are leading, how many
+     Tier 1 vs Tier 2, and the overall risk posture.
+   - Under each pick, add one line: "**Analyst take:** ..." — a concrete
+     entry/avoid recommendation grounded in that pick's criteria (which of
+     the 5 passed/failed, the RSI/volume/SMA values). Be specific, not
+     generic. Flag overbought (RSI>70) or extended (wide range) names as
+     wait-for-pullback rather than buy.
+   Do not invent data — only reason from the criteria/values provided.
+4. Commit reports/<date>.md with message "Add daily scan report <date>" and
+   push to the claude/scheduled-task-strategy-uynd2r branch.
+5. Summarize: Tier 1 / Tier 2 counts, the top 3 tickers, and your headline read.
 ```
+
+This is the **analysis/recommendation** layer: TradingView supplies the
+objective screen, Claude (in the scheduled task) writes the judgment calls.
 
 ## Notes
 
 - The `/api/scan` and `/api/cron` routes still exist (the old Yahoo engine) but
   are no longer scheduled. Safe to delete once TradingView is verified.
 - The dashboard is unchanged — it reads the same `latest-scan` Redis key the
-  webhook now populates.
+  webhook now populates, including per-criterion `detail` strings and the
+  `doubleConfirmed` flag, so the "View trade note" reasoning still renders.
+- The old Yahoo engine (`/api/cron`, `/api/scan`, `lib/data.js`,
+  `lib/scanner.js`) is kept as a manual fallback — run `node
+  scripts/run-scan.mjs` if TradingView is ever unavailable. It is no longer
+  scheduled.
 - Pine criteria mirror `lib/criteria.js`. The Higher-Highs check uses
   `ta.pivothigh(close, 3, 3)`, the exact equivalent of the JS "higher than 3
   bars before and after" peak test.
