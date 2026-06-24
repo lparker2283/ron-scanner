@@ -110,7 +110,7 @@ json = '{' +
    '"secret":"'   + secret + '",' +
    '"ticker":"'   + syminfo.ticker + '",' +
    '"sector":"'   + sectorNm + '",' +
-   '"sectorETF":"' + syminfo.ticker(sectorSym) + '",' +
+   '"sectorETF":"' + sectorSym + '",' +
    '"price":'     + str.tostring(math.round(close * 100) / 100) + ',' +
    '"stopLoss":'  + str.tostring(stop) + ',' +
    '"tier":'      + str.tostring(tier) + ',' +
