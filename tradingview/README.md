@@ -14,13 +14,27 @@ TradingView (Pine alert)  ──webhook──▶  /api/tv-webhook  ──▶  Re
 Why this beats the old Yahoo cron: TradingView **initiates** the connection, so
 the datacenter-IP block that 403'd Yahoo from the cloud never applies.
 
-## 1. Server setup (one-time)
+## 1. Env vars (one-time)
 
-Set an env var everywhere the app runs (Vercel project settings + the Cowork
-environment): `TV_WEBHOOK_SECRET` = a random string. Keep the existing Upstash
-Redis vars (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`).
+`TV_WEBHOOK_SECRET` is a password **you invent** (not something TradingView
+gives you) so the webhook can verify alerts are really yours. Generate one with
+`openssl rand -hex 16`.
 
-Deploy. Your webhook URL is `https://<your-app>.vercel.app/api/tv-webhook`.
+| Where | Variable(s) | Why |
+|---|---|---|
+| **Vercel** project env | `TV_WEBHOOK_SECRET` + existing `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | The webhook route validates the secret and writes to Redis |
+| **Pine script** input | the same `TV_WEBHOOK_SECRET` string | TradingView sends it in the alert payload |
+| **Cowork** environment | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` only | `build-report.mjs` reads picks from Redis. It does **not** need the webhook secret |
+
+Cowork env setup: claude.ai/code → click the cloud icon (environment selector) →
+hover your environment → gear icon → **Environment variables** field (`.env`
+format, one `KEY=value` per line, no quotes). If **Network access** is
+**Trusted** and the task can't reach Redis, switch to **Custom** and add your
+Upstash host (e.g. `your-db.upstash.io`) to **Allowed domains**. Note: Cowork
+env vars are visible to anyone who can edit the environment — no secrets store
+exists yet.
+
+Deploy Vercel. Your webhook URL is `https://<your-app>.vercel.app/api/tv-webhook`.
 
 ## 2. TradingView setup (one-time per sector)
 
